@@ -1,8 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 
 import numpy as np
 import torch
@@ -28,7 +23,7 @@ class LayerNorm3d(nn.Module):
 class PromptEncoder3D(nn.Module):
     def __init__(
         self,
-        embed_dim: int,
+        embed_dim: int,  #384
         image_embedding_size: Tuple[int, int, int],
         input_image_size: Tuple[int, int, int],
         mask_in_chans: int,
@@ -52,17 +47,19 @@ class PromptEncoder3D(nn.Module):
             input masks.
         """
         super().__init__()
-        self.embed_dim = embed_dim
+        self.embed_dim = embed_dim #384
         self.input_image_size = input_image_size
         self.image_embedding_size = image_embedding_size
         self.pe_layer = PositionEmbeddingRandom3D(embed_dim // 3)
 
         self.num_point_embeddings: int = 4  # pos/neg point + 2 box corners
         point_embeddings = [nn.Embedding(1, embed_dim) for i in range(self.num_point_embeddings)]
+
         self.point_embeddings = nn.ModuleList(point_embeddings)
         self.not_a_point_embed = nn.Embedding(1, embed_dim)
 
         self.mask_input_size = (image_embedding_size[0], image_embedding_size[1], image_embedding_size[2])
+
         self.mask_downscaling = nn.Sequential(
             nn.Conv3d(1, mask_in_chans // 4, kernel_size=2, stride=2),
             LayerNorm3d(mask_in_chans // 4),
@@ -99,15 +96,7 @@ class PromptEncoder3D(nn.Module):
         image_embeddings: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Embeds different types of prompts, returning both sparse and dense
-        embeddings.
-
-        Arguments:
-          points (tuple(torch.Tensor, torch.Tensor) or none): point coordinates
-            and labels to embed.
-          boxes (torch.Tensor or none): boxes to embed
-          masks (torch.Tensor or none): masks to embed
-
+        Embeds different types of prompts, returning both sparse and dense embeddings.
         Returns:
           torch.Tensor: sparse embeddings for the points and boxes, with shape
             BxNx(embed_dim), where N is determined by the number of input points
@@ -115,8 +104,10 @@ class PromptEncoder3D(nn.Module):
           torch.Tensor: dense embeddings for the masks, in the shape
             Bx(embed_dim)x(embed_H)x(embed_W)
         """
-        bs = self._get_batch_size(points, boxes, masks)
+        bs = self._get_batch_size(points, boxes, masks) #batch
+
         sparse_embeddings = torch.empty((bs, 0, self.embed_dim), device=self._get_device())
+        
         if points is not None:
             coords, labels = points
             point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
@@ -131,6 +122,8 @@ class PromptEncoder3D(nn.Module):
             dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1, 1).expand(
                 bs, -1, self.image_embedding_size[0], self.image_embedding_size[1], self.image_embedding_size[2]
             )
+
+
 
         new_prompt_embeddings, new_image_embeddings = self._two_way_transformer(
             image_embeddings=image_embeddings,
@@ -270,13 +263,13 @@ class PositionEmbeddingRandom3D(nn.Module):
         self.register_buffer(
             "positional_encoding_gaussian_matrix",
             scale * torch.randn((3, num_pos_feats)),
-        )
+        )####
 
     def _pe_encoding(self, coords: torch.Tensor) -> torch.Tensor:
         """Positionally encode points that are normalized to [0,1]."""
         # assuming coords are in [0, 1]^2 square and have d_1 x ... x d_n x 2 shape
-        coords = 2 * coords - 1
-        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords = 2 * coords - 1 #归一化
+        coords = coords @ self.positional_encoding_gaussian_matrix #矩阵乘法
         coords = 2 * np.pi * coords
         # outputs d_1 x ... x d_n x C shape
         return torch.cat([torch.sin(coords), torch.cos(coords), torch.sin(coords)], dim=-1)

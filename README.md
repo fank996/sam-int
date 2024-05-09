@@ -1,9 +1,6 @@
 # PRISM
 [PRISM](https://arxiv.org/abs/2404.15028): A **P**romptable and **R**obust **I**nteractive **S**egmentation **M**odel with Visual Prompts
 
-The Arxiv PDF file is loading a bit slowly.
-
-## News
 
 
 [03/07/24] The [pretrained PRISM](https://drive.google.com/drive/u/1/folders/1B6Df44Gd9PEBGPkE1FwC8Ds4jefCekUB) models and [preprocessed datasets](https://drive.google.com/drive/folders/13uGNb2WQhSQcBQIUhnvYJere1LBYGDsW?usp=sharing) are uploaded.

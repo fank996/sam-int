@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -155,12 +149,12 @@ class ImageEncoderViT(nn.Module):
 
         self.cnn_encoder = Unet_encoder(spatial_dims=3, in_channels=1, features=(32, 32, 64, 128, 384, 32))
 
-    def forward(self, x: torch.Tensor):
-        feature_list = []
-        x4, x3, x2, x1, x0 = self.cnn_encoder(x)
-        feature_list.append(x0)
 
-        x = self.patch_embed(x)
+
+    def forward(self, x: torch.Tensor):
+        
+        x = self.patch_embed(x) #n c 16 16 16
+        
         if self.pos_embed is not None:
             x = x + self.pos_embed
 

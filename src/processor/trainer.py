@@ -163,8 +163,6 @@ class Trainer(Trainer_basic):
 
             if self.args.use_scribble:
                 fg, bg_orig = fn_masks[i].permute(3, 0, 1, 2).float(), fp_masks[i].permute(3, 0, 1, 2).float()
-
-                # ====== with the purpose of efficiency only for first few epochs ======
                 bbx = _bbox_mask(label[i, 0, :].unsqueeze(0))
                 diff_ = 15
                 i_min, i_max = bbx[:, :, 0], bbx[:, :, 3]
@@ -176,11 +174,10 @@ class Trainer(Trainer_basic):
                     j_min, j_max = max(0, j_min - diff_), min(j_max + diff_, 126)
                 if max(0, k_min - diff_) < min(k_max + diff_, 126):
                     k_min, k_max = max(0, k_min - diff_), min(k_max + diff_, 126)
-
                 bg_mask = torch.zeros_like(bg_orig).permute(1, 2, 3, 0)
                 bg_mask[:, i_min:i_max, j_min:j_max, k_min:k_max] = 1
                 bg = bg_orig * bg_mask.permute(3, 0, 1, 2)
-                print('filter out voxels: {}'.format(torch.count_nonzero(bg_orig) - torch.count_nonzero(bg)))
+
 
                 scribble_type = scribble_types.get(sample_method, scribble_types['default'])
                 scribble_mask_fg = create_scribble_mask(scribble_type, fg)
@@ -193,10 +190,9 @@ class Trainer(Trainer_basic):
                 else:
                     fg_coors = torch.argwhere(scribble_mask_fg)[:, 1:].unsqueeze(0)
 
-                fg_coors_label = torch.ones(1, fg_coors.size(1))
+                fg_coors_label = torch.ones(1, fg_coors.size(1))  #111
                 bp_list.append(fg_coors)
                 bl_list.append(fg_coors_label)
-
 
                 scribble_mask_bg = create_scribble_mask(scribble_type, bg)
                 if torch.count_nonzero(scribble_mask_bg) >= limit_num + 50: # dynamic_size is 50
@@ -206,7 +202,7 @@ class Trainer(Trainer_basic):
                 else:
                     bg_coors = torch.argwhere(scribble_mask_bg)[:, 1:].unsqueeze(0)
 
-                bg_coors_label = torch.zeros(1, bg_coors.size(1))
+                bg_coors_label = torch.zeros(1, bg_coors.size(1)) ###000
                 bp_list.append(bg_coors)
                 bl_list.append(bg_coors_label)
 
@@ -228,11 +224,9 @@ class Trainer(Trainer_basic):
             torch.count_nonzero(fp_masks[0]) / torch.count_nonzero(true_masks[0]),
             str(batch_labels[0].numel() - torch.count_nonzero(batch_labels[0])),
             str(torch.count_nonzero(batch_labels[0]))
-        )
-        )
-        print('--- ===================================== ---')
+        ))
+       
         print('--- above before model, below after model ---')
-        print('--- ===================================== ---')
         return batch_points, batch_labels
 
     def iteration_forward(self, sam_model, features, image_embedding, prev_masks, points=None, boxes=None):

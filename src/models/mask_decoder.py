@@ -12,7 +12,6 @@ class LayerNorm3d(nn.Module):
         self.weight = nn.Parameter(torch.ones(num_channels))
         self.bias = nn.Parameter(torch.zeros(num_channels))
         self.eps = eps
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         u = x.mean(1, keepdim=True)
         s = (x - u).pow(2).mean(1, keepdim=True)
@@ -58,8 +57,8 @@ class MaskDecoder3D(nn.Module):
 
 
     def _predict_mask(self, upscaled_embedding, prompt_embeddings):
-        b, c, x, y, z = upscaled_embedding.shape
 
+        b, c, x, y, z = upscaled_embedding.shape
         iou_token_out = prompt_embeddings[:, 0, :]
         mask_tokens_out = prompt_embeddings[:, 1: (self.num_multiple_outputs + 1 + 1), :]  # multiple masks + iou
 
@@ -78,96 +77,7 @@ class MaskDecoder3D(nn.Module):
         masks = masks[:, mask_slice, :, :]
         iou_pred = iou_pred[:, mask_slice]
         return masks, iou_pred
-
-class Refine_unet(nn.Module):
-    def __init__(self):
-        super(Refine_unet, self).__init__()
-        self.refine = UNet(spatial_dims=3, in_channels=4, out_channels=1,
-                           channels=(32, 64, 64), strides=(2, 2), num_res_units=2)
-    def forward(self, x):
-        return self.refine(x)
-
-class Refine(nn.Module):
-    def __init__(self,
-                 args,
-                 spatial_dims: int = 3,
-                 in_channel: int = 4,
-                 out_channel: int = 32,
-                 act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": True}),
-                 norm: Union[str, tuple] = ("instance", {"affine": True}),
-                 bias: bool = True,
-                 dropout: Union[float, tuple] = 0.0,
-                 ):
-        super().__init__()
-        self.args = args
-
-        self.first_conv = Conv["conv", 3](in_channels=in_channel, out_channels=out_channel, kernel_size=1)
-
-        self.conv1 = TwoConv(spatial_dims, out_channel, out_channel, act, norm, bias, dropout)
-        self.conv2 = TwoConv(spatial_dims, out_channel, out_channel, act, norm, bias, dropout)
-
-        self.conv_error_map = Conv["conv", 3](in_channels=out_channel, out_channels=1, kernel_size=1)
-        self.conv_correction = Conv["conv", 3](in_channels=out_channel, out_channels=1, kernel_size=1)
-
-
-    def forward(self, image, mask_best, points, mask):
-
-        x = self._get_refine_input(image, mask_best, points)
-        mask = F.interpolate(mask, scale_factor=0.5, mode='trilinear', align_corners=False)
-
-        x = self.first_conv(x)
-
-        residual = x
-        x = self.conv1(x)
-        x = residual + x
-
-        residual = x
-        x = self.conv2(x)
-        x = residual + x
-
-        error_map = self.conv_error_map(x)
-        correction = self.conv_correction(x)
-
-        outputs = (error_map * correction + mask)
-
-        outputs = F.interpolate(outputs, scale_factor=2, mode='trilinear', align_corners=False)
-        error_map = F.interpolate(error_map, scale_factor=2, mode='trilinear', align_corners=False)
-        return outputs, error_map
-
-    def _get_refine_input(self, image, mask, points):
-        mask = torch.sigmoid(mask)
-        mask = (mask > 0.5)
-
-        coors, labels = points[0], points[1]
-        positive_map, negative_map = torch.zeros_like(image), torch.zeros_like(image)
-
-        for click_iters in range(len(coors)):
-            coors_click, labels_click = coors[click_iters], labels[click_iters]
-            for batch in range(image.size(0)):
-                point_label = labels_click[batch]
-                coor = coors_click[batch]
-                # sepehre_coor = [coor[:, 0], coor[:, 1], coor[:, 2]]
-
-                # Create boolean masks
-                negative_mask = point_label == 0
-                positive_mask = point_label != 0
-
-                # Update negative_map
-                if negative_mask.any():  # Check if there's at least one True in negative_mask
-                    negative_indices = coor[negative_mask]
-                    for idx in negative_indices:
-                        negative_map[batch, 0, idx[0], idx[1], idx[2]] = 1
-
-                # Update positive_map
-                if positive_mask.any():  # Check if there's at least one True in negative_mask
-                    positive_indices = coor[positive_mask]
-                    for idx in positive_indices:
-                        positive_map[batch, 0, idx[0], idx[1], idx[2]] = 1
-
-
-        refine_input = F.interpolate(torch.cat([image, mask, positive_map, negative_map], dim=1), scale_factor=0.5, mode='trilinear')
-        return refine_input
-
+l
 class MLP(nn.Module):
     def __init__(
         self,
